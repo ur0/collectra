@@ -49,7 +49,7 @@ use diesel::result::Error;
 #[derive(Debug, Queryable)]
 struct Device {
     id: i32,
-    uuid: String,
+    udid: String,
     ios_version: String,
     electra_version: i32,
     device_model: String,
@@ -57,7 +57,7 @@ struct Device {
 
 #[derive(Deserialize)]
 struct RequestDevice {
-    uuid: String,
+    udid: String,
     ios_version: String,
     electra_version: i32,
     device_model: String,
@@ -76,7 +76,7 @@ fn create_device(request_device: Json<RequestDevice>) -> Custom<&'static str> {
     let connection = DB_POOL.get().unwrap();
 
     let device_from_db: QueryResult<Device> = devices
-        .filter(uuid.eq(device.uuid.clone()))
+        .filter(udid.eq(device.udid.clone()))
         .limit(1)
         .get_result(&*connection);
 
@@ -96,7 +96,7 @@ fn create_device(request_device: Json<RequestDevice>) -> Custom<&'static str> {
         Err(Error::NotFound) => {
             diesel::insert_into(devices)
                 .values((
-                    uuid.eq(device.uuid),
+                    udid.eq(device.udid),
                     ios_version.eq(device.ios_version),
                     electra_version.eq(device.electra_version),
                     device_model.eq(device.device_model),
