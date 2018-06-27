@@ -107,8 +107,16 @@ fn create_device(request_device: Json<RequestDevice>) -> Custom<&'static str> {
     }
 }
 
+#[get("/count")]
+fn get_count() -> String {
+    use schema::devices::dsl::*;
+
+    let num_devices: i64 = devices.select(diesel::dsl::count_star()).first(&*DB_POOL.get().unwrap()).expect("Can't count devices");
+    num_devices.to_string()
+}
+
 fn main() {
     rocket::ignite()
-        .mount("/", routes![index, create_device])
+        .mount("/", routes![index, create_device, get_count])
         .launch();
 }
