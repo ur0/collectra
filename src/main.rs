@@ -26,7 +26,10 @@ use r2d2_diesel::ConnectionManager;
 use std::env;
 
 pub fn setup_connection_pool() -> Pool<ConnectionManager<PgConnection>> {
-    dotenv::dotenv().unwrap();
+    match dotenv::dotenv() {
+        Ok(_) => {}
+        Err(_) => println!("No .env file found"),
+    };
 
     let database_url = env::var("DATABASE_URL").expect("Need a valid database URL");
 
@@ -111,7 +114,10 @@ fn create_device(request_device: Json<RequestDevice>) -> Custom<&'static str> {
 fn get_count() -> String {
     use schema::devices::dsl::*;
 
-    let num_devices: i64 = devices.select(diesel::dsl::count_star()).first(&*DB_POOL.get().unwrap()).expect("Can't count devices");
+    let num_devices: i64 = devices
+        .select(diesel::dsl::count_star())
+        .first(&*DB_POOL.get().unwrap())
+        .expect("Can't count devices");
     num_devices.to_string()
 }
 
