@@ -1,2 +1,4 @@
 ALTER TABLE devices
 RENAME COLUMN uuid TO udid;
+ALTER TABLE devices
+ALTER COLUMN uuid TYPE VARCHAR;

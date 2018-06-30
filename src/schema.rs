@@ -3,7 +3,7 @@ table! {
         id -> Int4,
         udid -> Varchar,
         ios_version -> Varchar,
-        electra_version -> Int4,
+        electra_version -> Varchar,
         device_model -> Varchar,
     }
 }
