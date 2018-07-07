@@ -128,6 +128,7 @@ fn get_count_2<'request>() -> Response<'request> {
     Response::build()
         .status(Status::Ok)
         .header(AccessControlAllowOrigin::Any)
+        .raw_header("Content-Type", "application/javascript")
         .sized_body(Cursor::new(js_snippet))
         .finalize()
 }
