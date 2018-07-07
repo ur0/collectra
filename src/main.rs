@@ -52,6 +52,8 @@ use diesel::result::Error;
 #[derive(Debug, Queryable)]
 struct Device {
     id: i32,
+    /// The SHA256 of the UDID, used to ensure that there are no duplicates in the DB
+    /// Hashing is performed on-device
     udid: String,
     ios_version: String,
     electra_version: String,
@@ -60,6 +62,8 @@ struct Device {
 
 #[derive(Deserialize)]
 struct RequestDevice {
+    /// The SHA256 of the UDID, used to ensure that there are no duplicates in the DB
+    /// Hashing is performed on-device
     udid: String,
     ios_version: String,
     electra_version: String,
