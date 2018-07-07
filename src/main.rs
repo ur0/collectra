@@ -16,14 +16,17 @@ extern crate lazy_static;
 extern crate r2d2;
 extern crate r2d2_diesel;
 
+use rocket::http::hyper::header::AccessControlAllowOrigin;
 use rocket::http::Status;
 use rocket::response::status::Custom;
+use rocket::response::Response;
 use rocket_contrib::Json;
 
 use diesel::pg::PgConnection;
 use r2d2::Pool;
 use r2d2_diesel::ConnectionManager;
 use std::env;
+use std::io::Cursor;
 
 pub fn setup_connection_pool() -> Pool<ConnectionManager<PgConnection>> {
     match dotenv::dotenv() {
@@ -110,6 +113,25 @@ fn create_device(request_device: Json<RequestDevice>) -> Custom<&'static str> {
     }
 }
 
+#[route(OPTIONS, "/count_2")]
+fn count_2_options<'a>() -> Response<'a> {
+    Response::build()
+        .raw_header("Access-Control-Allow-Origin", "*")
+        .raw_header("Access-Control-Allow-Methods", "OPTIONS, GET")
+        .finalize()
+}
+
+#[get("/count_2")]
+fn get_count_2<'request>() -> Response<'request> {
+    let js_snippet = "window.num_devices=".to_owned() + &get_count() + ";";
+
+    Response::build()
+        .status(Status::Ok)
+        .header(AccessControlAllowOrigin::Any)
+        .sized_body(Cursor::new(js_snippet))
+        .finalize()
+}
+
 #[get("/count")]
 fn get_count() -> String {
     use schema::devices::dsl::*;
@@ -123,6 +145,15 @@ fn get_count() -> String {
 
 fn main() {
     rocket::ignite()
-        .mount("/", routes![index, create_device, get_count])
+        .mount(
+            "/",
+            routes![
+                index,
+                create_device,
+                get_count,
+                count_2_options,
+                get_count_2
+            ],
+        )
         .launch();
 }
