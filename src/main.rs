@@ -37,7 +37,10 @@ pub fn setup_connection_pool() -> Pool<ConnectionManager<PgConnection>> {
     let database_url = env::var("DATABASE_URL").expect("Need a valid database URL");
 
     let manager = ConnectionManager::<PgConnection>::new(database_url);
-    Pool::new(manager).expect("Failed to create pool.")
+    Pool::builder()
+        .max_size(20)
+        .build(manager)
+        .expect("Failed to create pool.")
 }
 
 lazy_static! {
