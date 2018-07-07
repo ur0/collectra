@@ -54,7 +54,7 @@ struct Device {
     id: i32,
     udid: String,
     ios_version: String,
-    electra_version: i32,
+    electra_version: String,
     device_model: String,
 }
 
@@ -62,7 +62,7 @@ struct Device {
 struct RequestDevice {
     udid: String,
     ios_version: String,
-    electra_version: i32,
+    electra_version: String,
     device_model: String,
 }
 
