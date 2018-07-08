@@ -49,7 +49,7 @@ lazy_static! {
 }
 
 use std::sync::RwLock;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub struct CountCahe {
     count: String,
@@ -81,6 +81,8 @@ struct Device {
     ios_version: String,
     electra_version: String,
     device_model: String,
+    num_checkins: i32,
+    last_checkin: i64,
 }
 
 #[derive(Deserialize)]
@@ -121,6 +123,11 @@ fn create_device(request_device: Json<RequestDevice>) -> Custom<&'static str> {
                     electra_version.eq(device.electra_version),
                     ios_version.eq(device.ios_version),
                     device_model.eq(device.device_model),
+                    num_checkins.eq(d.num_checkins + 1),
+                    last_checkin.eq(SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as i64),
                 ))
                 .get_result::<Device>(&*connection)
                 .expect("Couldn't update");
@@ -134,6 +141,11 @@ fn create_device(request_device: Json<RequestDevice>) -> Custom<&'static str> {
                     ios_version.eq(device.ios_version),
                     electra_version.eq(device.electra_version),
                     device_model.eq(device.device_model),
+                    num_checkins.eq(1),
+                    last_checkin.eq(SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as i64),
                 ))
                 .execute(&*connection)
                 .expect("Couldn't insert");
@@ -161,7 +173,9 @@ fn get_count_2<'request>() -> Response<'request> {
             count = c.count.clone();
             if c.updated_at.elapsed() > Duration::new(5, 0) {
                 thread::spawn(move || {
-                    let mut inner = COUNT_CACHE.write().expect("Couldn't unwrap cache for writing");
+                    let mut inner = COUNT_CACHE
+                        .write()
+                        .expect("Couldn't unwrap cache for writing");
                     let new = get_cache();
                     inner.count = new.count;
                     inner.updated_at = new.updated_at;
