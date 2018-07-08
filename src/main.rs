@@ -179,7 +179,6 @@ fn get_count_2<'request>() -> Response<'request> {
                     let new = get_cache();
                     inner.count = new.count;
                     inner.updated_at = new.updated_at;
-                    println!("Busted cache!")
                 });
             }
         }
