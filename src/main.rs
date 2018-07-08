@@ -39,7 +39,7 @@ pub fn setup_connection_pool() -> Pool<ConnectionManager<PgConnection>> {
 
     let manager = ConnectionManager::<PgConnection>::new(database_url);
     Pool::builder()
-        .max_size(20)
+        .max_size(18)
         .build(manager)
         .expect("Failed to create pool.")
 }
