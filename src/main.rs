@@ -278,6 +278,14 @@ fn get_stats() -> Json<Statistics> {
     Json(stats)
 }
 
+#[route(OPTIONS, "/statistics.json")]
+fn statistics_options<'a>() -> Response<'a> {
+    Response::build()
+        .raw_header("Access-Control-Allow-Origin", "*")
+        .raw_header("Access-Control-Allow-Methods", "OPTIONS, GET")
+        .finalize()
+}
+
 fn main() {
     rocket::ignite()
         .mount(
@@ -288,7 +296,8 @@ fn main() {
                 get_count,
                 count_2_options,
                 get_count_2,
-                get_stats
+                get_stats,
+                statistics_options
             ],
         )
         .launch();
