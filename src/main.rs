@@ -25,9 +25,12 @@ use rocket_contrib::Json;
 use diesel::pg::PgConnection;
 use r2d2::Pool;
 use r2d2_diesel::ConnectionManager;
+
 use std::env;
 use std::io::Cursor;
+use std::sync::RwLock;
 use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub fn setup_connection_pool() -> Pool<ConnectionManager<PgConnection>> {
     match dotenv::dotenv() {
@@ -46,25 +49,6 @@ pub fn setup_connection_pool() -> Pool<ConnectionManager<PgConnection>> {
 
 lazy_static! {
     pub static ref DB_POOL: Pool<ConnectionManager<PgConnection>> = setup_connection_pool();
-}
-
-use std::sync::RwLock;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-
-pub struct CountCahe {
-    count: String,
-    updated_at: Instant,
-}
-
-fn get_cache() -> CountCahe {
-    CountCahe {
-        count: get_count(),
-        updated_at: Instant::now(),
-    }
-}
-
-lazy_static! {
-    pub static ref COUNT_CACHE: RwLock<CountCahe> = RwLock::new(get_cache());
 }
 
 // Application logic begins here
@@ -156,6 +140,35 @@ fn create_device(request_device: Json<RequestDevice>) -> Custom<&'static str> {
     }
 }
 
+pub struct CountCahe {
+    count: String,
+    updated_at: Instant,
+}
+
+fn get_cache() -> CountCahe {
+    thread::spawn(move || {
+        thread::sleep(Duration::new(1, 00));
+        loop {
+            let mut inner = COUNT_CACHE
+                .write()
+                .expect("Couldn't unwrap cache for writing");
+            inner.count = get_count();
+            inner.updated_at = Instant::now();
+            drop(inner);
+            thread::sleep(Duration::new(5, 00));
+        }
+    });
+
+    CountCahe {
+        count: get_count(),
+        updated_at: Instant::now(),
+    }
+}
+
+lazy_static! {
+    pub static ref COUNT_CACHE: RwLock<CountCahe> = RwLock::new(get_cache());
+}
+
 #[route(OPTIONS, "/count_2")]
 fn count_2_options<'a>() -> Response<'a> {
     Response::build()
@@ -166,33 +179,20 @@ fn count_2_options<'a>() -> Response<'a> {
 
 #[get("/count_2")]
 fn get_count_2<'request>() -> Response<'request> {
-    let count: String;
-
     match COUNT_CACHE.read() {
         Ok(c) => {
-            count = c.count.clone();
-            if c.updated_at.elapsed() > Duration::new(5, 0) {
-                thread::spawn(move || {
-                    let mut inner = COUNT_CACHE
-                        .write()
-                        .expect("Couldn't unwrap cache for writing");
-                    let new = get_cache();
-                    inner.count = new.count;
-                    inner.updated_at = new.updated_at;
-                });
-            }
+            let count = c.count.clone();
+            let js_snippet = "window.num_devices=".to_owned() + &count + ";";
+
+            return Response::build()
+                .status(Status::Ok)
+                .header(AccessControlAllowOrigin::Any)
+                .raw_header("Content-Type", "application/javascript")
+                .sized_body(Cursor::new(js_snippet))
+                .finalize();
         }
         Err(_) => panic!("Can't get cache"),
     };
-
-    let js_snippet = "window.num_devices=".to_owned() + &count + ";";
-
-    Response::build()
-        .status(Status::Ok)
-        .header(AccessControlAllowOrigin::Any)
-        .raw_header("Content-Type", "application/javascript")
-        .sized_body(Cursor::new(js_snippet))
-        .finalize()
 }
 
 #[get("/count")]
@@ -241,6 +241,19 @@ fn load_stats() -> Statistics {
 }
 
 fn load_stats_cache() -> StatisticsCache {
+    thread::spawn(move || {
+        thread::sleep(Duration::new(1, 00));
+        loop {
+            let mut inner = STATS_CACHE
+                .write()
+                .expect("Couldn't unwrap cache for writing");
+            inner.statistics = load_stats();
+            inner.updated_at = Instant::now();
+            drop(inner);
+            thread::sleep(Duration::new(300, 00));
+        }
+    });
+
     StatisticsCache {
         statistics: load_stats(),
         updated_at: Instant::now(),
@@ -258,26 +271,13 @@ lazy_static! {
 
 #[get("/statistics.json")]
 fn get_stats() -> Json<Statistics> {
-    let stats: Statistics;
-
     match STATS_CACHE.read() {
         Ok(c) => {
-            stats = c.statistics.clone();
-            if c.updated_at.elapsed() > Duration::new(300, 0) {
-                thread::spawn(move || {
-                    let mut inner = STATS_CACHE
-                        .write()
-                        .expect("Couldn't unwrap cache for writing");
-                    let new = load_stats_cache();
-                    inner.statistics = new.statistics;
-                    inner.updated_at = new.updated_at;
-                });
-            }
+            let stats = c.statistics.clone();
+            return Json(stats);
         }
         Err(_) => panic!("Can't get cache"),
     };
-
-    Json(stats)
 }
 
 #[route(OPTIONS, "/statistics.json")]
