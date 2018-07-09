@@ -270,14 +270,19 @@ lazy_static! {
 }
 
 #[get("/statistics.json")]
-fn get_stats() -> Json<Statistics> {
+fn get_stats<'request>() -> Response<'request> {
     match STATS_CACHE.read() {
         Ok(c) => {
             let stats = c.statistics.clone();
-            return Json(stats);
+            Response::build()
+                .status(Status::Ok)
+                .header(AccessControlAllowOrigin::Any)
+                .raw_header("Content-Type", "application/json")
+                .sized_body(Cursor::new(serde_json::to_string(&stats).unwrap()))
+                .finalize()
         }
         Err(_) => panic!("Can't get cache"),
-    };
+    }
 }
 
 #[route(OPTIONS, "/statistics.json")]
