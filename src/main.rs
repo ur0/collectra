@@ -206,6 +206,78 @@ fn get_count() -> String {
     num_devices.to_string()
 }
 
+use diesel::sql_types::*;
+#[derive(Serialize, QueryableByName, Clone)]
+struct Statistic {
+    #[sql_type = "Varchar"]
+    selector: String,
+    #[sql_type = "BigInt"]
+    count: i64,
+}
+
+#[derive(Serialize, Clone)]
+struct Statistics {
+    by_ios_version: Vec<Statistic>,
+    by_electra_version: Vec<Statistic>,
+    by_device_model: Vec<Statistic>,
+}
+
+fn load_stats() -> Statistics {
+    use diesel::dsl::*;
+
+    let connection = DB_POOL.get().unwrap();
+
+    let by_ios_version: Vec<Statistic> = sql_query("SELECT ios_version AS selector, count(*) AS count FROM devices GROUP BY ios_version ORDER BY count DESC").load(&*connection).unwrap();
+    let by_device_model: Vec<Statistic> = sql_query("SELECT device_model AS selector, count(*) AS count FROM devices GROUP BY device_model ORDER BY count DESC").load(&*connection).unwrap();
+    let by_electra_version: Vec<Statistic> = sql_query("SELECT electra_version AS selector, count(*) AS count FROM devices GROUP BY electra_version ORDER BY count DESC").load(&*connection).unwrap();
+
+    Statistics {
+        by_ios_version: by_ios_version,
+        by_electra_version: by_electra_version,
+        by_device_model: by_device_model,
+    }
+}
+
+fn load_stats_cache() -> StatisticsCache {
+    StatisticsCache {
+        statistics: load_stats(),
+        updated_at: Instant::now(),
+    }
+}
+
+pub struct StatisticsCache {
+    statistics: Statistics,
+    updated_at: Instant,
+}
+
+lazy_static! {
+    pub static ref STATS_CACHE: RwLock<StatisticsCache> = RwLock::new(load_stats_cache());
+}
+
+#[get("/statistics.json")]
+fn get_stats() -> Json<Statistics> {
+    let stats: Statistics;
+
+    match STATS_CACHE.read() {
+        Ok(c) => {
+            stats = c.statistics.clone();
+            if c.updated_at.elapsed() > Duration::new(300, 0) {
+                thread::spawn(move || {
+                    let mut inner = STATS_CACHE
+                        .write()
+                        .expect("Couldn't unwrap cache for writing");
+                    let new = load_stats_cache();
+                    inner.statistics = new.statistics;
+                    inner.updated_at = new.updated_at;
+                });
+            }
+        }
+        Err(_) => panic!("Can't get cache"),
+    };
+
+    Json(stats)
+}
+
 fn main() {
     rocket::ignite()
         .mount(
@@ -215,7 +287,8 @@ fn main() {
                 create_device,
                 get_count,
                 count_2_options,
-                get_count_2
+                get_count_2,
+                get_stats
             ],
         )
         .launch();
