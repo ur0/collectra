@@ -217,6 +217,7 @@ struct Statistic {
 
 #[derive(Serialize, Clone)]
 struct Statistics {
+    total_count: String,
     by_ios_version: Vec<Statistic>,
     by_electra_version: Vec<Statistic>,
     by_device_model: Vec<Statistic>,
@@ -232,6 +233,7 @@ fn load_stats() -> Statistics {
     let by_electra_version: Vec<Statistic> = sql_query("SELECT electra_version AS selector, count(*) AS count FROM devices GROUP BY electra_version ORDER BY count DESC").load(&*connection).unwrap();
 
     Statistics {
+        total_count: get_count(),
         by_ios_version: by_ios_version,
         by_electra_version: by_electra_version,
         by_device_model: by_device_model,
